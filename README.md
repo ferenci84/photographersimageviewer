@@ -1,8 +1,8 @@
-# What is this?
+# Photographers' Image Viewer
 
-The Photographers Image Viewer (PgIV for short) is the simplest possible image viewer for quickly viewing through the photos you made and mark them "selected" or "remove".
+The Photographers' Image Viewer (PgIV for short) is the simplest possible image viewer for quickly viewing through the photos you made and mark them "selected" or "remove".
 
-## Reason for existence
+## Reason for existence and distinction from available alternatives
 
 Alternatives of this image viewer has one of these problems:
 
@@ -23,11 +23,11 @@ Alternatives of this image viewer has one of these problems:
 * PNG
 * CR2
 
-# Compile & Run & Build
+## Compile & Run & Build
 
 You can use pure java or maven.
 
-## Pure java
+### Pure java
 
 Download javafx-sdk-14 and javafx-jmods-14 from https://gluonhq.com/products/javafx/ and save them in the project directory.
 
@@ -52,7 +52,7 @@ Run Module:
 
     photographersimageviewer/bin/java -m photographersimageviewer/com.dynamicrpogrammingsolutions.photographersimageviewer.Main
     
-## Maven
+### Maven
     
 Set `JAVA_HOME` to a java version `>=11`.
 
@@ -68,7 +68,7 @@ Launch:
     
     ./target/photographersimageviewer/bin/launcher "image"
     
-## Create command (linux):
+### Create command (linux):
 
     sudo sh -c 'echo "#!""/bin/sh" > /usr/local/bin/photographersimageviewer'
     sudo sh -c 'echo $PWD"/target/photographersimageviewer/bin/launcher ""$""@" >> /usr/local/bin/photographersimageviewer'
