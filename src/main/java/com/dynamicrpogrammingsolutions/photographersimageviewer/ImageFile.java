@@ -19,7 +19,7 @@ class ImageFile {
 
     private Path metaFileDelete;
     private Path metaFileSelect;
-    private LocalTime lastUsed;
+    volatile private LocalTime lastUsed;
 
     AtomicBoolean isLoading = new AtomicBoolean();
     AtomicReference<Image> img = new AtomicReference<>();
@@ -33,22 +33,6 @@ class ImageFile {
         metaFileDelete = path.getParent().resolve(baseName+".delete");
         metaFileSelect = path.getParent().resolve(baseName+".select");
         checkMeta();
-    }
-
-    synchronized public void setWhenDone(Runnable whenDone) {
-        if (isLoading.get()) {
-            this.whenDone.set(whenDone);
-        } else {
-            whenDone.run();
-        }
-    }
-
-    synchronized public void cancel() {
-        if (isLoading.get()) {
-            this.whenDone.set(null);
-            isLoading.set(false);
-            if (img.get() == null) lastUsed = null;
-        }
     }
 
     public LocalTime getLastUsed() {
@@ -67,52 +51,79 @@ class ImageFile {
         return img.get() != null;
     }
 
-    synchronized public void setLoading() {
-        if (img.get() == null) {
-            isLoading.set(true);
-            lastUsed = LocalTime.now();
-
-        }
-    }
-
-    synchronized public void setLoading(Runnable whenDone) {
-        if (img.get() == null) {
-            isLoading.set(true);
-            lastUsed = LocalTime.now();
-        }
-        setWhenDone(whenDone);
-    }
-
     public void deleteCached() {
+        System.out.println("delete cache: "+this.getName());
         if (!isLoading.get()) {
+
             img.set(null);
             lastUsed = null;
         }
     }
 
+    private Thread loadThread;
+
+
     public void load() throws IOException {
-        boolean loading;
-        synchronized (this) {
-            loading = isLoading.get();
-        }
-        if (loading) {
-            Image loadImage = loadImage(path);
+        System.out.println("loading file "+path);
+        lastUsed = LocalTime.now();
+        Image loadImage;
+        try {
+            loadImage = loadImage(path);
             int orientation = getOrientation(path);
             synchronized (this) {
-                if (isLoading.get()) {
-                    img.set(loadImage);
-                    this.orientation = 0;
-                    if (orientation == 8) {
-                        this.orientation = 3;
-                    } else if (orientation == 5) {
-                        this.orientation = 1;
-                    }
-                    Runnable runOnEnd = whenDone.getAndUpdate(runnable -> null);
-                    if (runOnEnd != null) runOnEnd.run();
-                    isLoading.set(false);
+                System.out.println("set img "+this.getName());
+                img.set(loadImage);
+                this.orientation = 0;
+                if (orientation == 8) {
+                    this.orientation = 3;
+                } else if (orientation == 5) {
+                    this.orientation = 1;
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
+        /*if (!isLoaded()) {
+            if (this.isLoading.compareAndSet(false,true)) {
+                loadThread = new Thread(()-> {
+                    Image loadImage;
+                    try {
+                        loadImage = loadImage(path);
+                        int orientation = getOrientation(path);
+                        synchronized (this) {
+                            if (isLoading.get()) {
+                                img.set(loadImage);
+                                this.orientation = 0;
+                                if (orientation == 8) {
+                                    this.orientation = 3;
+                                } else if (orientation == 5) {
+                                    this.orientation = 1;
+                                }
+                                isLoading.set(false);
+                            }
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                });
+                loadThread.start();
+                try {
+                    loadThread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                if (loadThread != null && loadThread.isAlive()) {
+                    try {
+                        loadThread.join();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }*/
     }
 
     public static boolean filter(String name) {

@@ -19,9 +19,16 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Main extends Application {
@@ -43,13 +50,17 @@ public class Main extends Application {
     private Image img;
     private Canvas canvas;
     private List<ImageFile> imageFiles = Collections.EMPTY_LIST;
+    private Predicate<ImageFile> filter = (f) -> true;
+    private List<ImageFile> filteredImageFiles;
+    private Map<Integer,Integer> mapFilteredIdx;
+
     private int imageIdx = -1;
     private ImageFile currentImageFile;
 
     ImageLoader imageLoader = new ImageLoader();
 
     private void deleteImages() {
-        //System.out.println("delete images, cachesize: "+imageFiles.stream().filter(imageFile -> imageFile.getLastUsed() != null).count());
+        System.out.println("delete images, cachesize: "+imageFiles.stream().filter(imageFile -> imageFile.getLastUsed() != null).count());
         imageFiles.stream()
                 .filter(imageFile -> imageFile.getLastUsed() != null)
                 .sorted(Comparator.comparing(ImageFile::getLastUsed).reversed())
@@ -59,12 +70,21 @@ public class Main extends Application {
                 });
     }
 
+    private int getNumSelected() {
+        return (int)imageFiles.stream().filter(f -> f.getSelect()).count();
+    }
+
+    private void updateTitle() {
+        if (imageIdx == -1) primaryStage.setTitle("Photographers' Image Viewer");
+        primaryStage.setTitle(imageFiles.get(imageIdx).getName()+" selected: "+getNumSelected());
+    }
+
     private void loadImage(ImageFile imageFile) {
         imageLoader.loadImage(imageFile,() -> {
             Platform.runLater(() -> {
+                System.out.println("Showing "+imageFile.getName());
                 img = imageFile.useImage();
                 if (img != null) {
-                    primaryStage.setTitle(imageFile.getName());
                     double vw = canvas.getWidth();
                     double vh = canvas.getHeight();
                     currentImageFile = imageFile;
@@ -73,6 +93,8 @@ public class Main extends Application {
                         refreshTransform();
                     }
                     refreshImage();
+                } else {
+                    System.out.println("couldn't show "+imageFile.getName());
                 }
             });
             //System.out.println("Showing file: "+imageFile.getName());
@@ -86,6 +108,9 @@ public class Main extends Application {
             imageIdx = 0;
         }
         ImageFile imageFile = imageFiles.get(imageIdx);
+        Platform.runLater(() -> {
+            updateTitle();
+        });
         loadImage(imageFile);
     }
 
@@ -95,42 +120,97 @@ public class Main extends Application {
         }
     }
 
-    private void preload() {
-        preload(imageIdx + 1);
-        preload(imageIdx + 2);
-        preload(imageIdx + 3);
-        preload(imageIdx + 4);
-        preload(imageIdx + 5);
-        preload(imageIdx + 6);
-        preload(imageIdx + 7);
-        preload(imageIdx + 8);
-        preload(imageIdx - 1);
-        preload(imageIdx - 2);
-        preload(imageIdx - 3);
-        preload(imageIdx - 4);
-        preload(imageIdx - 5);
-        preload(imageIdx - 6);
-        preload(imageIdx - 7);
-        preload(imageIdx - 8);
-        deleteImages();
+    private void setFilter(Predicate<ImageFile> filter) {
+        this.filter = filter;
+        this.filteredImageFiles = imageFiles.stream()
+                .filter(filter)
+                .collect(Collectors.toList());
     }
 
+    private int findFilteredImageIdx(int idx) {
+        ImageFile imageFile = imageFiles.get(idx);
+        for (int i = 0; i < this.filteredImageFiles.size(); i++) {
+            if (filteredImageFiles.get(i) == imageFile) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    private int findImageIdx(int filteredIdx) {
+        if (filteredIdx > 0 && filteredIdx < filteredImageFiles.size()) {
+            ImageFile imageFile = filteredImageFiles.get(filteredIdx);
+            for (int i = 0; i < this.imageFiles.size(); i++) {
+                if (imageFile == imageFiles.get(i)) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private void preload() {
+        int filteredIdx = findFilteredImageIdx(imageIdx);
+        if (filteredIdx == -1) return;
+        preload(findImageIdx(filteredIdx + 1));
+        preload(findImageIdx(filteredIdx + 2));
+        preload(findImageIdx(filteredIdx + 3));
+        preload(findImageIdx(filteredIdx + 4));
+        preload(findImageIdx(filteredIdx + 5));
+        preload(findImageIdx(filteredIdx + 6));
+        preload(findImageIdx(filteredIdx + 7));
+        preload(findImageIdx(filteredIdx + 8));
+        preload(findImageIdx(filteredIdx - 1));
+        preload(findImageIdx(filteredIdx - 2));
+        preload(findImageIdx(filteredIdx - 3));
+        preload(findImageIdx(filteredIdx - 4));
+        preload(findImageIdx(filteredIdx - 5));
+        preload(findImageIdx(filteredIdx - 6));
+        preload(findImageIdx(filteredIdx - 7));
+        preload(findImageIdx(filteredIdx - 8));
+        deleteImages();
+    }
+    private int findNext(int curr) {
+        int ret = curr;
+        while(curr < imageFiles.size()-1) {
+            curr++;
+            if (filter.test(imageFiles.get(curr))) {
+                ret = curr;
+                break;
+            }
+        }
+        if (ret == -1) ret = 0;
+        return ret;
+    }
+    private int findPrev(int curr) {
+        int ret = curr;
+        while(curr > 0) {
+            curr--;
+            if (filter.test(imageFiles.get(curr))) {
+                ret = curr;
+                break;
+            }
+        }
+        if (ret == -1) ret = 0;
+        return ret;
+    }
     private void stepForward() {
         if (imageFiles.isEmpty()) return;
-        if (imageIdx < 0) {
+        imageIdx = findNext(imageIdx);
+        /*if (imageIdx < 0) {
             imageIdx = 0;
             return;
         }
         imageIdx++;
-        imageIdx = Math.min(imageIdx,imageFiles.size()-1);
+        imageIdx = Math.min(imageIdx,imageFiles.size()-1);*/
     }
     private void stepBackward() {
         if (imageFiles.isEmpty()) return;
-        if (imageIdx < 0) {
+        imageIdx = findPrev(imageIdx);
+        /*if (imageIdx < 0) {
             imageIdx = 0;
         }
         imageIdx--;
-        imageIdx = Math.max(imageIdx,0);
+        imageIdx = Math.max(imageIdx,0);*/
     }
 
     private void eventHandlerForward() {
@@ -158,6 +238,7 @@ public class Main extends Application {
             try {
                 currentImageFile.setToDelete(!currentImageFile.getToDelete());
                 refreshImage();
+                updateTitle();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -169,6 +250,7 @@ public class Main extends Application {
             try {
                 currentImageFile.setSelect(!currentImageFile.getSelect());
                 refreshImage();
+                updateTitle();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -199,6 +281,7 @@ public class Main extends Application {
                     imageIdx = i;
                 }
             }
+            setFilter(f -> true);
         }
         System.out.println("finished loading folder imageIdx: "+imageIdx);
     }
@@ -249,6 +332,9 @@ public class Main extends Application {
         new Thread(() -> {
             try {
                 loadFolder(dir, initialImageFile);
+                Platform.runLater(() -> {
+                    updateTitle();
+                });
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -269,8 +355,17 @@ public class Main extends Application {
             refreshImage();
         });
 
-        scene.setOnScroll(event -> {
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        AtomicLong lastMouseMoved = new AtomicLong();
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            if (System.currentTimeMillis()-lastMouseMoved.get() >= 1000) {
+                Platform.runLater(() -> {
+                    scene.setCursor(Cursor.NONE);
+                });
+            }
+        },700,100,TimeUnit.MILLISECONDS);
 
+        scene.setOnScroll(event -> {
             double delta = 0;
             switch(event.getTextDeltaYUnits()) {
                 case LINES:
@@ -309,12 +404,12 @@ public class Main extends Application {
                 this.eventHandlerBackward();
             }
             if (keyEvent.getCode().equals(KeyCode.DELETE) ||
-                    keyEvent.getCode().equals(KeyCode.D)
+                    (!keyEvent.isControlDown() && keyEvent.getCode().equals(KeyCode.D))
             ) {
                 this.eventHandlerDelete();
             }
             if (keyEvent.getCode().equals(KeyCode.INSERT) ||
-                    keyEvent.getCode().equals(KeyCode.S)
+                    (!keyEvent.isControlDown() && keyEvent.getCode().equals(KeyCode.S))
             ) {
                 this.eventHandlerSelect();
             }
@@ -326,7 +421,15 @@ public class Main extends Application {
                 imageCalc.zoom(1/ZOOM_FACTOR_KEY,scene.getWidth()/2.0,scene.getHeight()/2.0);
                 refreshImage();
             }
-
+            if (keyEvent.isControlDown() && keyEvent.getCode().equals(KeyCode.A)) {
+                this.setFilter(f -> true);
+            }
+            if (keyEvent.isControlDown() && keyEvent.getCode().equals(KeyCode.S)) {
+                this.setFilter(f -> f.getSelect() && !f.getToDelete());
+            }
+            if (keyEvent.isControlDown() && keyEvent.getCode().equals(KeyCode.D)) {
+                this.setFilter(f -> !f.getToDelete());
+            }
         });
 
         scene.setOnMousePressed(event -> {
@@ -339,13 +442,18 @@ public class Main extends Application {
 
         });
         scene.setOnMouseDragged(event -> {
+            lastMouseMoved.set(System.currentTimeMillis());
             if (drag.dragging) {
-
+                scene.setCursor(Cursor.OPEN_HAND);
                 double deltaX = -event.getSceneX() + drag.startX;
                 double deltaY = -event.getSceneY() + drag.startY;
                 imageCalc.move(drag.startPosX,drag.startPosY,deltaX,deltaY);
                 refreshImage();
             }
+        });
+        scene.setOnMouseMoved(event -> {
+            scene.setCursor(Cursor.DEFAULT);
+            lastMouseMoved.set(System.currentTimeMillis());
         });
         scene.setOnMouseReleased(event -> {
             drag.dragging = false;
@@ -358,6 +466,13 @@ public class Main extends Application {
 
         primaryStage.setScene(scene);
         primaryStage.show();
+
+    }
+
+    private void setTimeout(Runnable run) {
+
+    }
+    private void removeTimeout() {
 
     }
 
@@ -393,12 +508,17 @@ public class Main extends Application {
         }
     }
 
+    private int graphicsContextRotate = 0;
+
     private void refreshTransform(GraphicsContext graphicsContext2D, ImageCalc imageCalc) {
         if (imageCalc.orientation == 1) {
+            graphicsContextRotate = 1;
             graphicsContext2D.setTransform(getRotateRight());
         } else if (imageCalc.orientation == 3) {
+            graphicsContextRotate = 3;
             graphicsContext2D.setTransform(getRotateLeft());
         } else {
+            graphicsContextRotate = 0;
             graphicsContext2D.setTransform(getNoRotate());
         }
     }
@@ -431,12 +551,24 @@ public class Main extends Application {
     }
 
     private void showImageInfo(GraphicsContext graphicsContext2D, ImageCalc imageCalc, ImageFile imageFile) {
+        int size = 20;
+        int dist = 30;
+        boolean drawrect = false;
         if (imageFile.getToDelete()) {
-            graphicsContext2D.setFill(Color.RED);
-            graphicsContext2D.fillRect(imageCalc.vwwidth - 20, 10, 10, 10);
+            graphicsContext2D.setFill(Color.ORANGERED);
+            drawrect = true;
         } else if (imageFile.getSelect()) {
-            graphicsContext2D.setFill(Color.GREEN);
-            graphicsContext2D.fillRect(imageCalc.vwwidth-20,10,10,10);
+            graphicsContext2D.setFill(Color.LIME);
+            drawrect = true;
+        }
+        if (drawrect) {
+            if (graphicsContextRotate == 0) {
+                graphicsContext2D.fillRect(imageCalc.vwwidth - dist - size, dist, size, size);
+            } else if (graphicsContextRotate == 1) {
+                graphicsContext2D.fillRect(10, 10, size, size);
+            } else if (graphicsContextRotate == 3) {
+                graphicsContext2D.fillRect(imageCalc.vwwidth - dist-size, imageCalc.vwheight - dist-size, size, size);
+            }
         }
     }
 
