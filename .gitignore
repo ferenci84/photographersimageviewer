@@ -1,0 +1,6 @@
+javafx-sdk-14
+javafx-jmods-14
+.idea
+target
+*.kate-swp
+*.iml
