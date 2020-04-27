@@ -22,10 +22,7 @@ import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
@@ -78,12 +75,16 @@ public class Main extends Application {
         if (imageIdx == -1) primaryStage.setTitle("Photographers' Image Viewer");
         primaryStage.setTitle(imageFiles.get(imageIdx).getName()+" selected: "+getNumSelected());
     }
+    private void updateTitle(ImageFile imgFile) {
+        primaryStage.setTitle(imgFile.getName()+" selected: "+getNumSelected());
+    }
 
     private void loadImage(ImageFile imageFile) {
         imageLoader.loadImage(imageFile,() -> {
             Platform.runLater(() -> {
                 System.out.println("Showing "+imageFile.getName());
                 img = imageFile.useImage();
+                updateTitle(imageFile);
                 if (img != null) {
                     double vw = canvas.getWidth();
                     double vh = canvas.getHeight();
@@ -108,9 +109,9 @@ public class Main extends Application {
             imageIdx = 0;
         }
         ImageFile imageFile = imageFiles.get(imageIdx);
-        Platform.runLater(() -> {
+        /*Platform.runLater(() -> {
             updateTitle();
-        });
+        });*/
         loadImage(imageFile);
     }
 
@@ -257,6 +258,7 @@ public class Main extends Application {
         }
     }
 
+    private ExecutorService executor = Executors.newCachedThreadPool();
 
     private void loadFolder(Path folder, ImageFile initialImage) throws IOException {
         if (Files.isDirectory(folder)) {
@@ -267,7 +269,7 @@ public class Main extends Application {
                         if (path.equals(initialImage.getPath())) {
                             files.add(initialImage);
                         } else {
-                            files.add(new ImageFile(path));
+                            files.add(new ImageFile(path,executor));
                         }
                     }
                 }
@@ -327,7 +329,7 @@ public class Main extends Application {
             dir = initialImagePath;
         }
 
-        ImageFile initialImageFile = new ImageFile(initialImagePath);
+        ImageFile initialImageFile = new ImageFile(initialImagePath,executor);
         loadImage(initialImageFile);
         new Thread(() -> {
             try {

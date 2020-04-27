@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,8 +28,10 @@ class ImageFile {
     AtomicReference<Image> img = new AtomicReference<>();
     int orientation = 0;
     AtomicReference<Runnable> whenDone = new AtomicReference<>();
+    private ExecutorService executor;
 
-    public ImageFile(Path path) throws IOException {
+    public ImageFile(Path path,ExecutorService executor) throws IOException {
+        this.executor = executor;
         this.path = path;
         String name = path.getName(path.getNameCount()-1).toString();
         String baseName = name.substring(0,name.lastIndexOf('.'));
@@ -62,27 +67,54 @@ class ImageFile {
 
     private Thread loadThread;
 
+    private AtomicReference<Future<?>> loadFuture = new AtomicReference<>();
 
     public void load() throws IOException {
-        System.out.println("loading file "+path);
-        lastUsed = LocalTime.now();
-        Image loadImage;
-        try {
-            loadImage = loadImage(path);
-            int orientation = getOrientation(path);
-            synchronized (this) {
-                System.out.println("set img "+this.getName());
-                img.set(loadImage);
-                this.orientation = 0;
-                if (orientation == 8) {
-                    this.orientation = 3;
-                } else if (orientation == 5) {
-                    this.orientation = 1;
-                }
+        Future<?> load = loadFuture.get();
+        if (load != null) {
+            try {
+                load.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } finally {
+                loadFuture.set(null);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } else {
+            load = executor.submit(() -> {
+                System.out.println("loading file " + path);
+                lastUsed = LocalTime.now();
+                Image loadImage;
+                try {
+                    loadImage = loadImage(path);
+                    int orientation = getOrientation(path);
+                    synchronized (this) {
+                        System.out.println("set img " + this.getName());
+                        img.set(loadImage);
+                        this.orientation = 0;
+                        if (orientation == 8) {
+                            this.orientation = 3;
+                        } else if (orientation == 5) {
+                            this.orientation = 1;
+                        }
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            try {
+                loadFuture.set(load);
+                load.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } finally {
+                loadFuture.set(null);
+            }
         }
+
 
         /*if (!isLoaded()) {
             if (this.isLoading.compareAndSet(false,true)) {
@@ -127,16 +159,42 @@ class ImageFile {
     }
 
     public static boolean filter(String name) {
-        return name.endsWith("CR2") || name.endsWith("cr2") || name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG") || name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF");
+        return name.endsWith("CR2") || name.endsWith("cr2") || name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG") || name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF") || name.endsWith("jp2") || name.endsWith("JP2");
     }
     private static Image loadImage(Path path) throws IOException {
         String name = path.getFileName().toString();
         if (name.endsWith("CR2") || name.endsWith("cr2")) {
             return loadCR2(path);
-        } else if (name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG") || name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF")) {
+        } else if (name.endsWith("jp2") || name.endsWith("JP2")) {
+            return loadJp2(path);
+        } else if (name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF")) {
+            return loadTif(path);
+        } else if (name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG")) {
             return loadIMG(path);
         }
         return null;
+    }
+    private static Image loadJp2(Path path) throws IOException {
+        String[] command = new String[3];
+        command[0] = "convert";
+        command[1] = path.toString();
+        command[2] = "bmp:";
+        Runtime rt = Runtime.getRuntime();
+        Process process = rt.exec(command);
+        Image img = new Image(process.getInputStream());
+        //System.out.println("loaded image dimensions: "+img.getWidth()+" "+img.getHeight());
+        return img;
+    }
+    private static Image loadTif(Path path) throws IOException {
+        String[] command = new String[3];
+        command[0] = "convert";
+        command[1] = path.toString()+"[0-0]";
+        command[2] = "bmp:";
+        Runtime rt = Runtime.getRuntime();
+        Process process = rt.exec(command);
+        Image img = new Image(process.getInputStream());
+        //System.out.println("loaded image dimensions: "+img.getWidth()+" "+img.getHeight());
+        return img;
     }
     private static Image loadIMG(Path path) throws IOException {
         return new Image(Files.newInputStream(path));
@@ -157,7 +215,12 @@ class ImageFile {
             }
         }
         String orientation = textBuilder.toString();
-        return Integer.parseInt(orientation);
+        if (orientation.isEmpty()) return -1;
+        try {
+            return Integer.parseInt(orientation);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
     private static Image loadCR2(Path path) throws IOException {
         Runtime rt = Runtime.getRuntime();
