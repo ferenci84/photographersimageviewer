@@ -60,6 +60,7 @@ public class Main extends Application {
         System.out.println("delete images, cachesize: "+imageFiles.stream().filter(imageFile -> imageFile.getLastUsed() != null).count());
         imageFiles.stream()
                 .filter(imageFile -> imageFile.getLastUsed() != null)
+                .filter(imageFile -> imageFile.isLoaded())
                 .sorted(Comparator.comparing(ImageFile::getLastUsed).reversed())
                 .skip(MAX_IMG_IN_CACHE)
                 .forEach(imageFile -> {
@@ -168,7 +169,6 @@ public class Main extends Application {
         preload(findImageIdx(filteredIdx - 6));
         preload(findImageIdx(filteredIdx - 7));
         preload(findImageIdx(filteredIdx - 8));
-        deleteImages();
     }
     private int findNext(int curr) {
         int ret = curr;

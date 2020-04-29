@@ -59,9 +59,7 @@ class ImageFile {
     public void deleteCached() {
         System.out.println("delete cache: "+this.getName());
         if (!isLoading.get()) {
-
             img.set(null);
-            lastUsed = null;
         }
     }
 
@@ -159,17 +157,17 @@ class ImageFile {
     }
 
     public static boolean filter(String name) {
-        return name.endsWith("CR2") || name.endsWith("cr2") || name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG") || name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF") || name.endsWith("jp2") || name.endsWith("JP2");
+        return name.endsWith(".CR2") || name.endsWith(".cr2") || name.endsWith(".jpg") || name.endsWith(".JPG") || name.endsWith(".png") || name.endsWith(".PNG") || name.endsWith(".tif") || name.endsWith(".tiff") || name.endsWith(".TIF") || name.endsWith(".TIFF") || name.endsWith(".jp2") || name.endsWith(".JP2");
     }
     private static Image loadImage(Path path) throws IOException {
         String name = path.getFileName().toString();
-        if (name.endsWith("CR2") || name.endsWith("cr2")) {
+        if (name.endsWith(".CR2") || name.endsWith(".cr2")) {
             return loadCR2(path);
-        } else if (name.endsWith("jp2") || name.endsWith("JP2")) {
+        } else if (name.endsWith(".jp2") || name.endsWith(".JP2")) {
             return loadJp2(path);
-        } else if (name.endsWith("tif") || name.endsWith("tiff") || name.endsWith("TIF") || name.endsWith("TIFF")) {
+        } else if (name.endsWith(".tif") || name.endsWith(".tiff") || name.endsWith(".TIF") || name.endsWith(".TIFF")) {
             return loadTif(path);
-        } else if (name.endsWith("jpg") || name.endsWith("JPG") || name.endsWith("png") || name.endsWith("PNG")) {
+        } else if (name.endsWith(".jpg") || name.endsWith(".JPG") || name.endsWith(".png") || name.endsWith(".PNG")) {
             return loadIMG(path);
         }
         return null;
