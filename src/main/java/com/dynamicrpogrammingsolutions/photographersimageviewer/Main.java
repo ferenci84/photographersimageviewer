@@ -51,6 +51,20 @@ public class Main extends Application {
     private List<ImageFile> filteredImageFiles;
     private Map<Integer,Integer> mapFilteredIdx;
 
+    private ExecutorService executor = Executors.newCachedThreadPool(r -> {
+        Thread thread = new Thread(r);
+        thread.setName("load-imagefile-thread");
+        thread.setPriority(Thread.NORM_PRIORITY);
+        return thread;
+    });
+
+    ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread thread = new Thread(r);
+        thread.setName("scheduled-executor-thread");
+        thread.setPriority(Thread.NORM_PRIORITY);
+        return thread;
+    });
+
     private int imageIdx = -1;
     private ImageFile currentImageFile;
 
@@ -258,7 +272,7 @@ public class Main extends Application {
         }
     }
 
-    private ExecutorService executor = Executors.newCachedThreadPool();
+
 
     private void loadFolder(Path folder, ImageFile initialImage) throws IOException {
         if (Files.isDirectory(folder)) {
@@ -294,6 +308,8 @@ public class Main extends Application {
     public void start(Stage primaryStage) throws Exception {
 
         List<String> parameters = this.getParameters().getUnnamed();
+
+        System.out.println(parameters);
 
         if (parameters.size() < 1) {
             System.err.println("No Image to show");
@@ -331,7 +347,7 @@ public class Main extends Application {
 
         ImageFile initialImageFile = new ImageFile(initialImagePath,executor);
         loadImage(initialImageFile);
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             try {
                 loadFolder(dir, initialImageFile);
                 Platform.runLater(() -> {
@@ -341,7 +357,9 @@ public class Main extends Application {
                 e.printStackTrace();
             }
             preload();
-        }).start();
+        });
+        thread.setName("load-folder-thread");
+        thread.start();
 
         scene.widthProperty().addListener((observable, oldValue, newValue) -> {
             imageCalc.resize(scene.getWidth(),scene.getHeight());
@@ -357,7 +375,6 @@ public class Main extends Application {
             refreshImage();
         });
 
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         AtomicLong lastMouseMoved = new AtomicLong();
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             if (System.currentTimeMillis()-lastMouseMoved.get() >= 1000) {
@@ -463,6 +480,8 @@ public class Main extends Application {
         });
 
         primaryStage.setOnCloseRequest(windowEvent -> {
+            this.executor.shutdown();
+            this.scheduledExecutorService.shutdown();
             imageLoader.finish();
         });
 

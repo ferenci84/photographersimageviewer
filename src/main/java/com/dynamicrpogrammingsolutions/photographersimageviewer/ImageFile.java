@@ -33,6 +33,7 @@ class ImageFile {
     public ImageFile(Path path,ExecutorService executor) throws IOException {
         this.executor = executor;
         this.path = path;
+        System.out.println("new imagefile: "+path.toString());
         String name = path.getName(path.getNameCount()-1).toString();
         String baseName = name.substring(0,name.lastIndexOf('.'));
         metaFileDelete = path.getParent().resolve(baseName+".delete");
@@ -157,12 +158,14 @@ class ImageFile {
     }
 
     public static boolean filter(String name) {
-        return name.endsWith(".CR2") || name.endsWith(".cr2") || name.endsWith(".jpg") || name.endsWith(".JPG") || name.endsWith(".png") || name.endsWith(".PNG") || name.endsWith(".tif") || name.endsWith(".tiff") || name.endsWith(".TIF") || name.endsWith(".TIFF") || name.endsWith(".jp2") || name.endsWith(".JP2");
+        return name.endsWith(".CR2") || name.endsWith(".cr2") || name.endsWith(".CRW") || name.endsWith(".crw")  || name.endsWith(".jpg") || name.endsWith(".JPG") || name.endsWith(".png") || name.endsWith(".PNG") || name.endsWith(".tif") || name.endsWith(".tiff") || name.endsWith(".TIF") || name.endsWith(".TIFF") || name.endsWith(".jp2") || name.endsWith(".JP2");
     }
     private static Image loadImage(Path path) throws IOException {
         String name = path.getFileName().toString();
         if (name.endsWith(".CR2") || name.endsWith(".cr2")) {
             return loadCR2(path);
+        } else if (name.endsWith(".CRW") || name.endsWith(".crw")) {
+            return loadCRW(path);
         } else if (name.endsWith(".jp2") || name.endsWith(".JP2")) {
             return loadJp2(path);
         } else if (name.endsWith(".tif") || name.endsWith(".tiff") || name.endsWith(".TIF") || name.endsWith(".TIFF")) {
@@ -219,6 +222,17 @@ class ImageFile {
         } catch (NumberFormatException e) {
             return -1;
         }
+    }
+    private static Image loadCRW(Path path) throws IOException {
+        Runtime rt = Runtime.getRuntime();
+        String[] command = new String[4];
+        command[0] = "exiftool";
+        command[1] = "-b";
+        command[2] = "-jpgfromraw";
+        command[3] = path.toString();
+        Process process = rt.exec(command);
+        InputStream inputStream = process.getInputStream();
+        return new Image(inputStream);
     }
     private static Image loadCR2(Path path) throws IOException {
         Runtime rt = Runtime.getRuntime();

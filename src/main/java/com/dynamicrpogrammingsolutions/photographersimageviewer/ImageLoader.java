@@ -17,6 +17,7 @@ public class ImageLoader {
             new LinkedBlockingQueue<Runnable>(),
             r -> {
                 Thread thread = new Thread(r);
+                thread.setName("load-thread");
                 thread.setPriority(Thread.NORM_PRIORITY);
                 return thread;
             });;
@@ -28,6 +29,7 @@ public class ImageLoader {
             new LinkedBlockingQueue<Runnable>(),
             r -> {
                 Thread thread = new Thread(r);
+                thread.setName("preload-thread");
                 thread.setPriority(Thread.NORM_PRIORITY-1);
                 return thread;
             });
@@ -46,7 +48,8 @@ public class ImageLoader {
     };
 
     public void finish() {
-
+        executor.shutdown();
+        preloadExecutor.shutdown();
     }
 
     private AtomicReference<Future<?>> lastMainLoadFuture = new AtomicReference<>();
