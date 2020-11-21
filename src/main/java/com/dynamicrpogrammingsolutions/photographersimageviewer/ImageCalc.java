@@ -39,30 +39,96 @@ class ImageCalc {
 
     void init(double imgwidth, double imgheight, double posx, double posy, int orientation, double vwwidth, double vwheight) {
 
-        if (orientation == 0) {
-            this.vwwidth = vwwidth;
-            this.vwheight = vwheight;
-        } else {
-            this.vwwidth = vwheight;
-            this.vwheight = vwwidth;
-        }
+            if (initialized && imgwidth==this.imgwidth && imgheight==this.imgheight && orientation != this.orientation) {
 
-        initialized = true;
-        sizing = Sizing.FIT;
-        this.posx = posx;
-        this.posy = posy;
-        this.imgwidth = imgwidth;
-        this.imgheight = imgheight;
-        this.orientation = orientation;
-        this.zoom = minZoom();
+                if (this.zoom <= minZoom()+0.0001) {
+                    this.sizing = Sizing.FIT;
+                } else {
+                    this.sizing = Sizing.ZOOM;
+                }
 
-        centerX();
-        centerY();
-        printVals();
+                double realwidth = imgwidth*zoom;
+                double realheight = imgheight*zoom;
+
+                double imgposx = -this.posx;
+                double imgposy = -this.posy;
+
+                double centerposx = (imgposx+(realwidth/2.0))/this.vwwidth;
+                double centerposy = (imgposy+(realheight/2.0))/this.vwheight;
+
+                double temp = centerposx;
+                centerposx = centerposy;
+                centerposy = temp;
+
+                if (orientation == 0) {
+                    centerposy = 1.0-centerposy;
+                } else {
+                    centerposx = 1.0-centerposx;
+                }
+
+
+                this.orientation = orientation;
+                if (orientation == 0) {
+                    this.vwwidth = vwwidth;
+                    this.vwheight = vwheight;
+                } else {
+                    this.vwwidth = vwheight;
+                    this.vwheight = vwwidth;
+                }
+
+                if (this.sizing == Sizing.FIT || this.zoom < minZoom()) {
+                    this.zoom = minZoom();
+                    this.posx = 0;
+                    this.posy = 0;
+                    centerX();
+                    centerY();
+                } else {
+                    imgposx = (this.vwwidth*centerposx)-(realwidth/2.0);
+                    imgposy = (this.vwheight*centerposy)-(realheight/2.0);
+
+                    this.posx = -imgposx;
+                    this.posy = -imgposy;
+
+                    if (this.imgwidth < this.vwwidth) centerX();
+                    if (this.imgheight < this.vwheight) centerY();
+
+                    centerX();
+                    centerY();
+
+                }
+
+
+            } else {
+
+                if (orientation == 0) {
+                    this.vwwidth = vwwidth;
+                    this.vwheight = vwheight;
+                } else {
+                    this.vwwidth = vwheight;
+                    this.vwheight = vwwidth;
+                }
+
+                sizing = Sizing.FIT;
+                this.posx = posx;
+                this.posy = posy;
+                this.imgwidth = imgwidth;
+                this.imgheight = imgheight;
+                this.orientation = orientation;
+
+                this.zoom = minZoom();
+
+                centerX();
+                centerY();
+
+                initialized = true;
+            }
+
+            printVals();
+
     }
 
     private void printVals() {
-        System.out.println(vwwidth+" "+vwheight+" "+imgwidth+" "+imgheight+" "+posx+" "+posy);
+        System.out.println("vwwidth:"+vwwidth+" vwheight:"+vwheight+" imgwidth:"+imgwidth+" imgheight:"+imgheight+" orientation:"+orientation+" posx:"+posx+" posy:"+posy);
     }
 
     private void centerX() {
