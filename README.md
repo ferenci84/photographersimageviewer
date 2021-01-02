@@ -62,6 +62,7 @@ Run:
     
 Package module:
 
+    export JAVA_HOME=/home/ferenci84/.jdk/amazon-corretto-15.0.1.9.1-linux-x64/
     mvn clean compile javafx:jlink
     
 Launch:

@@ -70,6 +70,13 @@ public class Main extends Application {
 
     ImageLoader imageLoader = new ImageLoader();
 
+    private int getImgFileIdx(ImageFile imgFile) {
+        for (int i = 0; i < imageFiles.size(); i++) {
+            if (imageFiles.get(i).equals(imgFile)) return i;
+        }
+        return -1;
+    }
+
     private void deleteImages() {
         System.out.println("delete images, cachesize: "+imageFiles.stream().filter(imageFile -> imageFile.getLastUsed() != null).count());
         imageFiles.stream()
@@ -88,10 +95,11 @@ public class Main extends Application {
 
     private void updateTitle() {
         if (imageIdx == -1) primaryStage.setTitle("Photographers' Image Viewer");
-        primaryStage.setTitle(imageFiles.get(imageIdx).getName()+" selected: "+getNumSelected());
+        primaryStage.setTitle(imageFiles.get(imageIdx).getName()+" ("+(imageIdx+1)+"/"+imageFiles.size()+")"+" selected: "+getNumSelected());
     }
+
     private void updateTitle(ImageFile imgFile) {
-        primaryStage.setTitle(imgFile.getName()+" selected: "+getNumSelected());
+        primaryStage.setTitle(imgFile.getName()+" ("+(getImgFileIdx(imgFile)+1)+"/"+imageFiles.size()+")"+" selected: "+getNumSelected());
     }
 
     private void loadImage(ImageFile imageFile) {
