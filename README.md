@@ -48,6 +48,10 @@ Package Module:
 
     $JAVA_HOME/bin/jlink --module-path $PATH_TO_FX_MODS:mods --add-modules photographersimageviewer --output photographersimageviewer
     
+    $JAVA_HOME/bin/jlink --module-path $PATH_TO_FX_MODS:mods --add-modules photographersimageviewer --output photographersimageviewer
+    
+    $JAVA_HOME/bin/jpackage --type app-image --module-path ./javafx-jmods-16 --module-path ./target/classes --add-modules photographersimageviewer --input target/classes --dest target/package -m photographersimageviewer/com.dynamicrpogrammingsolutions.photographersimageviewer.Main
+
 Run Module:
 
     photographersimageviewer/bin/java -m photographersimageviewer/com.dynamicrpogrammingsolutions.photographersimageviewer.Main
@@ -64,7 +68,11 @@ Package module:
 
     export JAVA_HOME=/home/ferenci84/.jdk/amazon-corretto-15.0.1.9.1-linux-x64/
     mvn clean compile javafx:jlink
-    
+
+package:
+
+    $JAVA_HOME/bin/jpackage --type app-image --name photographersimageviewer --module-path ./javafx-jmods-16 --module-path ./target/classes --add-modules photographersimageviewer --input target/classes --dest target/package -m photographersimageviewer/com.dynamicrpogrammingsolutions.photographersimageviewer.Main --file-associations ./associations/jpg.properties --file-associations ./associations/cr2.properties
+
 Launch:
     
     ./target/photographersimageviewer/bin/launcher "image"
@@ -75,3 +83,18 @@ Launch:
     sudo sh -c 'echo $PWD"/target/photographersimageviewer/bin/launcher ""$""@" >> /usr/local/bin/photographersimageviewer'
     sudo chmod +x /usr/local/bin/photographersimageviewer
 
+### Create command (mac)
+
+    sudo sh -c 'echo "#!""/bin/sh" > /usr/local/bin/photographersimageviewer'
+    sudo sh -c 'echo $PWD"/target/photographersimageviewer/bin/launcher ""$""@" >> /usr/local/bin/photographersimageviewer'
+    sudo chmod +x /usr/local/bin/photographersimageviewer
+
+
+    mkdir ./target/script
+    echo "#!""/bin/zsh" > ./target/script/photographersimageviewer
+    echo $PWD"/target/photographersimageviewer/bin/launcher ""$""@" >> ./target/script/photographersimageviewer
+    chmod +x ./target/script/photographersimageviewer
+    mkdir -p /Applications/photographersimageviewer.app/Contents/MacOS
+    cp ./target/script/photographersimageviewer /Applications/photographersimageviewer.app/Contents/MacOS/
+    chmod +x /Applications/photographersimageviewer.app/Contents/MacOS/photographersimageviewer
+    cp ./Info.plist /Applications/photographersimageviewer.app/Contents

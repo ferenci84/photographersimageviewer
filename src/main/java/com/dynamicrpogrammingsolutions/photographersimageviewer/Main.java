@@ -14,6 +14,7 @@ import javafx.scene.transform.Affine;
 import javafx.stage.Stage;
 
 import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -29,6 +30,52 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Main extends Application {
+
+    /*
+    static String initialFile;
+
+    static {
+        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
+            System.out.println("Setting event handler");
+            Desktop.getDesktop().setOpenFileHandler(event -> {
+                for (File file : event.getFiles()) {
+                    System.out.println(file.getPath());
+                    initialFile = file.getPath();
+                    break;
+                }
+            });
+        } else {
+            System.out.println("Desktop not supported");
+        }
+    }
+    */
+
+    {
+
+        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
+            System.out.println("Setting 2nd event handler");
+            Desktop.getDesktop().setOpenFileHandler(event -> {
+                for (File file : event.getFiles()) {
+                    System.out.println(file.getPath());
+                    try {
+                        this.setInitialImage(file.getPath());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+            });
+            /*if (initialFile != null) {
+                try {
+                    this.setInitialImage(initialFile);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }*/
+        } else {
+            System.out.println("Desktop not supported");
+        }
+    }
 
     private static class Drag {
         boolean dragging;
@@ -64,6 +111,38 @@ public class Main extends Application {
         thread.setPriority(Thread.NORM_PRIORITY);
         return thread;
     });
+
+    private void setInitialImage(String initialImage) throws IOException {
+        Path initialImagePath = Paths.get(initialImage).toAbsolutePath();
+
+        if (Files.isDirectory(initialImagePath)){
+            System.err.println("Parameter is a directory");
+            System.exit(1);
+        }
+
+        Path dir;
+        if (!Files.isDirectory(initialImagePath)) {
+            dir = initialImagePath.getParent();
+        } else {
+            dir = initialImagePath;
+        }
+
+        ImageFile initialImageFile = new ImageFile(initialImagePath,executor);
+        loadImage(initialImageFile);
+        Thread thread = new Thread(() -> {
+            try {
+                loadFolder(dir, initialImageFile);
+                Platform.runLater(() -> {
+                    updateTitle();
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            preload();
+        });
+        thread.setName("load-folder-thread");
+        thread.start();
+    }
 
     private int imageIdx = -1;
     private ImageFile currentImageFile;
@@ -319,10 +398,10 @@ public class Main extends Application {
 
         System.out.println(parameters);
 
-        if (parameters.size() < 1) {
+        /*if (parameters.size() < 1) {
             System.err.println("No Image to show");
             System.exit(1);
-        }
+        }*/
 
         primaryStage.setTitle("Photographers Image Viewer");
         this.primaryStage = primaryStage;
@@ -337,8 +416,18 @@ public class Main extends Application {
         canvas.setHeight(330);
         canvas.setWidth(600);
 
+        if (parameters.size() > 0) {
+            String initialImage = parameters.get(0);
+            if (initialImage != null) {
+                try {
+                    setInitialImage(initialImage);
+                } catch (Exception ignored) {
 
-        String initialImage = parameters.get(0);
+                }
+            }
+        }
+
+        /*String initialImage = parameters.get(0);
         Path initialImagePath = Paths.get(initialImage).toAbsolutePath();
 
         if (Files.isDirectory(initialImagePath)){
@@ -368,6 +457,7 @@ public class Main extends Application {
         });
         thread.setName("load-folder-thread");
         thread.start();
+         */
 
         scene.widthProperty().addListener((observable, oldValue, newValue) -> {
             imageCalc.resize(scene.getWidth(),scene.getHeight());
